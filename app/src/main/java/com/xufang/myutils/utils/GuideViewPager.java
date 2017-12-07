@@ -9,7 +9,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.duowan.mobile.entlive.R;
+import com.xufang.myutils.R;
 
 import java.util.ArrayList;
 import java.util.List;

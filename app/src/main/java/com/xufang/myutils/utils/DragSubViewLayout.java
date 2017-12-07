@@ -3,24 +3,19 @@ package com.xufang.myutils.utils;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.support.annotation.AttrRes;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.v4.widget.ViewDragHelper;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
 
-import com.duowan.mobile.entlive.R;
-import com.yy.mobile.memoryrecycle.views.YYFrameLayout;
-import com.yy.mobile.util.log.MLog;
+import com.xufang.myutils.R;
 
 /**
  * Created by xufang on 2017/6/2.
  */
 
-public class DragSubViewLayout extends YYFrameLayout {
+public class DragSubViewLayout extends FrameLayout {
     private static final String TAG = "DragSubViewLayout";
 
     private static final int DRAW_NOTING = 0;
@@ -32,22 +27,21 @@ public class DragSubViewLayout extends YYFrameLayout {
 
     private View mChild;
 
-    private boolean mIsVertical;
     private boolean mIsTouchInChild;
     private Paint mCoverPaint;
     private ChildPositionInfo mChildPositionInfo;
 
     private int mDrawState = DRAW_NOTING;
 
-    public DragSubViewLayout(@NonNull Context context) {
+    public DragSubViewLayout(Context context) {
         this(context, null);
     }
 
-    public DragSubViewLayout(@NonNull Context context, @Nullable AttributeSet attrs) {
+    public DragSubViewLayout(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
     }
 
-    public DragSubViewLayout(@NonNull Context context, @Nullable AttributeSet attrs, @AttrRes int defStyleAttr) {
+    public DragSubViewLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         init();
     }
@@ -65,7 +59,6 @@ public class DragSubViewLayout extends YYFrameLayout {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        MLog.debug(TAG, "onDraw mDrawState:%d", mDrawState);
         if (mDrawState == DRAW_NOTING) {
             return;
         }
@@ -111,14 +104,9 @@ public class DragSubViewLayout extends YYFrameLayout {
         post(new Runnable() {
             @Override
             public void run() {
-                setOrientation(isVertical);
                 setChildPosition(childLeft, childTop, childRight, childBottom);
             }
         });
-    }
-
-    private void setOrientation(boolean isVertical) {
-        mIsVertical = isVertical;
     }
 
     private void setChildPosition(int childLeft, int childTop, int childRight, int childBottom) {
@@ -151,7 +139,7 @@ public class DragSubViewLayout extends YYFrameLayout {
         params.width = width;
         params.height = height;
         params.leftMargin = mChildPositionInfo.left - getPaddingLeft();
-        params.topMargin = mChildPositionInfo.top -getPaddingTop();
+        params.topMargin = mChildPositionInfo.top - getPaddingTop();
         mChild.setLayoutParams(params);
     }
 
@@ -202,7 +190,6 @@ public class DragSubViewLayout extends YYFrameLayout {
         public void onViewDragStateChanged(int state) {
             updateChildLayoutParams();
 
-            MLog.debug(TAG, "onViewDragStateChanged state:%d", state);
             if (state == ViewDragHelper.STATE_DRAGGING) {
                 mChild.setVisibility(VISIBLE);
                 mDrawState = DRAW_BEFORE_DRAG;
@@ -233,7 +220,6 @@ public class DragSubViewLayout extends YYFrameLayout {
             int top = releasedChild.getTop();
             int right = releasedChild.getRight();
             int bottom = releasedChild.getBottom();
-            MLog.debug(TAG, "onViewReleased, left:%d, top:%d, right:%d, bottom:%d", left, top, right, bottom);
             if (mCallback != null) {
                 mCallback.onDragFinishedPosition(left, top, right, bottom);
             }

@@ -5,12 +5,10 @@ import android.content.res.TypedArray;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.View;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 
-import com.duowan.mobile.entlive.R;
-import com.yy.mobile.memoryrecycle.views.YYImageView;
-import com.yy.mobile.memoryrecycle.views.YYLinearLayout;
-import com.yy.mobile.util.CollectionsHelper;
-import com.yy.mobile.util.log.MLog;
+import com.xufang.myutils.R;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,13 +17,13 @@ import java.util.List;
  * Created by xufang on 2017/6/1.
  */
 
-public class LoadingView extends YYLinearLayout {
+public class LoadingView extends LinearLayout {
     private static final String TAG = "LoadingView";
 
     private static final int DEFAULT_REFRESH_SPEED = 300;
 
     private int mRefreshIntervalMillis;
-    private List<YYImageView> mImageChildList;
+    private List<ImageView> mImageChildList;
     private List<Float> mAlphaPercentList;
     private int mImageChildCount;
     private int mLoopTimes;
@@ -47,18 +45,18 @@ public class LoadingView extends YYLinearLayout {
         }
         int childIndex = 0;
         for (int i = mLoopTimes; i < mImageChildCount; i++) {
-            YYImageView child = mImageChildList.get(childIndex);
+            ImageView child = mImageChildList.get(childIndex);
             setChildDrawable(child, mAlphaPercentList.get(i));
             childIndex++;
         }
         for (int i = 0; i < mLoopTimes; i++) {
-            YYImageView child = mImageChildList.get(childIndex);
+            ImageView child = mImageChildList.get(childIndex);
             setChildDrawable(child, mAlphaPercentList.get(i));
             childIndex++;
         }
     }
 
-    private void setChildDrawable(YYImageView child, float alphaPercent) {
+    private void setChildDrawable(ImageView child, float alphaPercent) {
         int alpha = (int) (alphaPercent * 255);
         Drawable drawable = child.getDrawable();
         if (drawable != null) {
@@ -92,8 +90,6 @@ public class LoadingView extends YYLinearLayout {
      */
     public void setAlphaPercentList(List<Float> alphaPercentList) {
         mAlphaPercentList = new ArrayList<>(alphaPercentList);
-        MLog.info(TAG, "setAlphaPercentList mAlphaPercentList.size():%d, mImageChildCount:%d",
-                mAlphaPercentList.size(), mImageChildCount);
         if (mAlphaPercentList.size() != mImageChildCount) {
             return;
         }
@@ -103,7 +99,7 @@ public class LoadingView extends YYLinearLayout {
             public void run() {
                 if (mAlphaPercentList != null) {
                     for (int i = 0; i < mImageChildCount; i++) {
-                        YYImageView imageView = mImageChildList.get(i);
+                        ImageView imageView = mImageChildList.get(i);
                         setChildDrawable(imageView, mAlphaPercentList.get(i));
                     }
                 }
@@ -112,18 +108,20 @@ public class LoadingView extends YYLinearLayout {
     }
 
     public void startLoading() {
-        if (CollectionsHelper.isNullOrEmpty(mAlphaPercentList)
-                || CollectionsHelper.isNullOrEmpty(mImageChildList)
+        if (isEmpty(mAlphaPercentList)
+                || isEmpty(mImageChildList)
                 || mAlphaPercentList.size() != mImageChildCount) {
             return;
         }
 
-        MLog.info(TAG, "startLoading");
         postDelayed(mRefreshTask, mRefreshIntervalMillis);
     }
 
+    private boolean isEmpty(List list) {
+        return list == null || list.isEmpty();
+    }
+
     public void stopLoading() {
-        MLog.info(TAG, "stopLoading");
         removeCallbacks(mRefreshTask);
     }
 
@@ -135,12 +133,11 @@ public class LoadingView extends YYLinearLayout {
 
     private void initChildList() {
         int childCount = getChildCount();
-        MLog.info(TAG, "initChildList， childCount:%d", childCount);
         mImageChildList = new ArrayList<>(childCount);
         for (int i = 0; i < getChildCount(); i++) {
             View child = getChildAt(i);
-            if (child instanceof YYImageView) {
-                mImageChildList.add((YYImageView) child);
+            if (child instanceof ImageView) {
+                mImageChildList.add((ImageView) child);
             }
         }
         mImageChildCount = mImageChildList.size();

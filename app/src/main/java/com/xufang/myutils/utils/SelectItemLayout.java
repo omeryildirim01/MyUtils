@@ -4,9 +4,7 @@ import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
-
-import com.yy.mobile.memoryrecycle.views.YYLinearLayout;
-import com.yy.mobile.util.log.MLog;
+import android.widget.LinearLayout;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,13 +14,13 @@ import java.util.Map;
 /**
  * Created by xufang on 2017/6/3.
  */
-public class SelectItemLayout extends YYLinearLayout {
+public class SelectItemLayout extends LinearLayout {
     private static final String TAG = "SelectItemLayout";
 
     private List<Item> mSubItems;
     private Map<View, Integer> mSubLayoutIndexMap;
 
-    private int mSelectIndex;
+    private int mSelectLayoutId;
 
     private boolean mHasInit = false;
 
@@ -59,10 +57,11 @@ public class SelectItemLayout extends YYLinearLayout {
                 } else {
                     item.addView(subLayout);
                 }
+                item.layoutId = subLayout.getId();
 
                 mSubItems.add(item);
-                mSubLayoutIndexMap.put(subLayout, i);
-                subLayout.setOnClickListener(new OnClickListener() {
+                mSubLayoutIndexMap.put(subLayout, subLayout.getId());
+                subLayout.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
                         setSelect(subLayout);
@@ -75,7 +74,6 @@ public class SelectItemLayout extends YYLinearLayout {
             mHasInit = true;
         } catch (Exception e) {
             mHasInit = false;
-            MLog.error(TAG, e.toString());
         }
     }
 
@@ -91,20 +89,18 @@ public class SelectItemLayout extends YYLinearLayout {
 
     public void setSelect(View subLayout) {
         if (!mHasInit) {
-            MLog.info(TAG, "mHasInit is false");
             return;
         }
 
-        Integer index = mSubLayoutIndexMap.get(subLayout);
-        if (index == null) {
-            MLog.error(TAG, "setSelected subLayout index is invalid");
+        Integer layoutId = mSubLayoutIndexMap.get(subLayout);
+        if (layoutId == null || layoutId == View.NO_ID) {
             return;
         }
 
-        mSelectIndex = index;
+        mSelectLayoutId = layoutId;
         for (int i = 0; i < mSubItems.size(); i++) {
             Item item = mSubItems.get(i);
-            if (i == index) {
+            if (item.layoutId == layoutId) {
                 for (int k = 0; k < item.views.size(); k++) {
                     item.views.get(k).setSelected(true);
                 }
@@ -116,21 +112,19 @@ public class SelectItemLayout extends YYLinearLayout {
         }
     }
 
-    public void setSelect(int index) {
+    public void setSelect(int layoutId) {
         if (!mHasInit) {
-            MLog.info(TAG, "mHasInit is false");
             return;
         }
 
-        if (index < 0 || index >= mSubItems.size()) {
-            MLog.error(TAG, "setSelect invalid index, index:%d, mItemsCount:%d", index, mSubItems.size());
+        if (layoutId == View.NO_ID) {
             return;
         }
 
-        mSelectIndex = index;
+        mSelectLayoutId = layoutId;
         for (int i = 0; i < mSubItems.size(); i++) {
             Item item = mSubItems.get(i);
-            if (i == index) {
+            if (item.layoutId == layoutId) {
                 for (int k = 0; k < item.views.size(); k++) {
                     item.views.get(k).setSelected(true);
                 }
@@ -143,24 +137,15 @@ public class SelectItemLayout extends YYLinearLayout {
     }
 
     public int getSelectIndex() {
-        return mSelectIndex;
-    }
-
-    public ViewGroup getSelectedSubLayout() {
-        try {
-            return (ViewGroup) getChildAt(mSelectIndex);
-        } catch (Exception e) {
-            MLog.error(TAG, e.toString());
-        }
-
-        return null;
+        return mSelectLayoutId;
     }
 
     public interface ItemClickListener {
-        void onItemClicked(int index);
+        void onItemClicked(int id);
     }
 
     private class Item {
+        int layoutId;
         ArrayList<View> views;
 
         public Item() {

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="GuideViewPager">
+        <attr name="gvp_page1" format="reference" />
+        <attr name="gvp_page2" format="reference" />
+        <attr name="gvp_page3" format="reference" />
+        <attr name="gvp_page4" format="reference" />
+        <attr name="gvp_ack_view_id" format="reference" />
+    </declare-styleable>
+
+    <declare-styleable name="LoadingView">
+        <attr name="refresh_speed" format="integer|reference" />
+    </declare-styleable>
+</resources>

@@ -7,16 +7,13 @@ import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.util.AttributeSet;
-
-import com.yy.mobile.memoryrecycle.views.YYRelativeLayout;
-import com.yy.mobile.ui.utils.DimensUtils;
-import com.yy.mobile.util.log.MLog;
+import android.widget.RelativeLayout;
 
 /**
  * Created by xufang on 2017/6/16.
  */
 
-public class PartTransparentView extends YYRelativeLayout {
+public class PartTransparentView extends RelativeLayout {
     private Context mContext;
 
     private Rect mTransparentRect;
@@ -65,7 +62,6 @@ public class PartTransparentView extends YYRelativeLayout {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        MLog.debug("PartTransparentView", "onDraw");
         setLayerType(LAYER_TYPE_HARDWARE, null);
 
         drawStroke(canvas);
