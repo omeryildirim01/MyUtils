@@ -42,6 +42,7 @@ public class PartTransparentView extends RelativeLayout {
     private void init(Context context) {
         mContext = context;
         mTransparentRect = new Rect(0, 0, 0, 0);
+        setLayerType(LAYER_TYPE_SOFTWARE, null);
     }
 
     public void setTransparentRect(final Rect rect) {

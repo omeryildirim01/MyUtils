@@ -11,4 +11,29 @@
     <declare-styleable name="LoadingView">
         <attr name="refresh_speed" format="integer|reference" />
     </declare-styleable>
+
+    <declare-styleable name="LoadingLayout">
+        <attr name="ll_progress_layout_id" format="reference" />
+    </declare-styleable>
+
+    <declare-styleable name="BlurClearProgressView">
+        <attr name="draw_clear_style" format="enum">
+            <enum name="style_center_to_edge" value="1" />
+            <enum name="style_side_to_side" value="2" />
+        </attr>
+    </declare-styleable>
+
+    <declare-styleable name="CenterToEdgeTransparentView">
+        <attr name="bcpv_stroke_width" format="dimension|reference" />
+        <attr name="bcpv_stroke_color" format="color|reference" />
+    </declare-styleable>
+
+    <declare-styleable name="SideToSideTransparentView">
+        <attr name="ststv_start_side" format="enum">
+            <enum name="from_left" value="1" />
+            <enum name="from_top" value="2" />
+            <enum name="from_rigth" value="3" />
+            <enum name="from_bottom" value="4" />
+        </attr>
+    </declare-styleable>
 </resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="progress_style" parent="@android:style/Widget.ProgressBar.Inverse">
+        <item name="android:indeterminateDrawable">@drawable/mn_loading_animated_drawable</item>
+        <item name="android:indeterminateDuration">1000</item>
+    </style>
+</resources>
