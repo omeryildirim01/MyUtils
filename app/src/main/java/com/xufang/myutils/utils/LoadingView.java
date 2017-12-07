@@ -1,4 +1,4 @@
-package com.yy.mobile.ui.widget;
+package com.xufang.myutils.utils;
 
 import android.content.Context;
 import android.content.res.TypedArray;
