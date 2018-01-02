@@ -10,7 +10,7 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.util.Log;
-
+import android.view.animation.LinearInterpolator;
 import com.xufang.myutils.utils.DimensUtils;
 
 import java.util.ArrayList;
@@ -34,7 +34,7 @@ public class LikeItem {
     private Bitmap mLikeBitmap;
     private Point mTouchPoint;
 
-    private boolean mIsAnimating;
+    private volatile boolean mIsAnimating;
     private float mScale, mTranslationY;
     private float mAlpha; //0-255
     private float mRotateAngle;
@@ -140,6 +140,7 @@ public class LikeItem {
 
     private ValueAnimator getAnimator(float start, float end, long duration, final AnimType animType) {
         final ValueAnimator animator = ValueAnimator.ofFloat(start, end).setDuration(duration);
+        animator.setInterpolator(new LinearInterpolator());
         animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
             public void onAnimationUpdate(ValueAnimator valueAnimator) {

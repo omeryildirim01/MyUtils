@@ -17,6 +17,7 @@ import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.animation.LinearInterpolator;
 
 import com.xufang.myutils.R;
 import com.xufang.myutils.utils.DimensUtils;
@@ -34,11 +35,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class LikeView extends SurfaceView {
     private static final String TAG = "LikeView";
 
-    private SurfaceHolder mSurfaceHolder;
-    private DrawThread mDrawThread;
     private Context mContext;
-    private LikeViewListener mLikeViewListener;
+
+    private ValueAnimator mUpdateAnimator;
+
+    //shared collection
+    private List<LikeItem> mLikeItems;
+    private RecyclerPool<LikeItem> mLikeItemRecyclerPool;
+
+    private Bitmap mBitmap;
+    private int mBitmapWidth, mBitmapHeight;
+
+    private DrawThread mDrawThread;
+    private SurfaceHolder mSurfaceHolder;
     private final AtomicBoolean mIsSurfaceValid = new AtomicBoolean(false);
+
+    private LikeViewListener mLikeViewListener;
 
     public LikeView(Context context) {
         super(context);
@@ -57,27 +69,129 @@ public class LikeView extends SurfaceView {
 
     private void init(Context context) {
         mContext = context;
+        mLikeItems = new ArrayList<>();
+        mLikeItemRecyclerPool = new RecyclerPool<>();
+
+        mBitmapWidth = DimensUtils.dip2pixel(mContext, 150);
+        mBitmapHeight = DimensUtils.dip2pixel(mContext, 150);
+
+        initLikeBitmap();
         initSurfaceHolder();
+        initUpdateAnimator();
     }
 
     public void addLike(int x, int y) {
         if (mDrawThread != null) {
-            mDrawThread.onAddLike(x, y);
+            synchronized (mDrawThread.mLock) {
+                LikeItem likeItem = getLikeItem();
+                if (likeItem == null) {
+                    return;
+                }
+                likeItem.setTouchPoint(x - mBitmapWidth / 2, y - mBitmapHeight / 2);
+                likeItem.start();
+                mLikeItems.add(likeItem);
+                if (!mUpdateAnimator.isRunning()) {
+                    mUpdateAnimator.start();
+                }
+            }
         }
+    }
+
+    public void clearLikeView() {
+        if (mDrawThread == null || mDrawThread.mIsLikeListEmpty) {
+            return;
+        }
+
+        synchronized (mDrawThread.mLock) {
+            final List<LikeItem> likeItems = mLikeItems;
+            for (LikeItem item : likeItems) {
+                item.stop();
+            }
+        }
+    }
+
+    private LikeItem getLikeItem() {
+        LikeItem likeItem = mLikeItemRecyclerPool.obtain();
+        if (likeItem == null) {
+            if (mBitmap != null) {
+                likeItem = new LikeItem(mContext, mBitmap);
+            }
+        } else {
+            likeItem.reset();
+        }
+
+        return likeItem;
     }
 
     public boolean isLiking() {
         return mDrawThread != null && !mDrawThread.mIsLikeListEmpty;
     }
 
-    public void clear() {
-        if (mDrawThread != null) {
-            mDrawThread.clearAnimations();
+    private void stopThread() {
+        synchronized (mDrawThread.mLock) {
+            final List<LikeItem> likeItems = mLikeItems;
+            for (LikeItem item : likeItems) {
+                item.stop();
+            }
+            likeItems.clear();
+            mLikeItemRecyclerPool.clear();
         }
+
+        mUpdateAnimator.cancel();
+        mDrawThread.quit();
+        mDrawThread = null;
     }
 
     public void setLikeViewListener(LikeViewListener likeViewListener) {
         mLikeViewListener = likeViewListener;
+    }
+
+    private void onPlayOver() {
+        if (mLikeViewListener != null) {
+            mLikeViewListener.onLikeViewPlayOver();
+        }
+
+        mUpdateAnimator.cancel();
+    }
+
+    private void initLikeBitmap() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if (mBitmap == null && mBitmapWidth > 0 && mBitmapHeight > 0) {
+                    try {
+                        mBitmap = BitmapFactory.decodeResource(mContext.getResources(), R.drawable.small_video_like);
+                        mBitmap = Bitmap.createScaledBitmap(mBitmap, mBitmapWidth, mBitmapHeight, false);
+                    } catch (Throwable throwable) {
+
+                    }
+                }
+            }
+        }).start();
+    }
+
+    private void initUpdateAnimator() {
+        mUpdateAnimator = ValueAnimator.ofFloat(0, 1);
+        mUpdateAnimator.setInterpolator(new LinearInterpolator());
+        mUpdateAnimator.setDuration(1000);
+        mUpdateAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        mUpdateAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                if (mIsSurfaceValid.get()) {
+                    Surface surface = mSurfaceHolder.getSurface();
+                    if (surface == null || !surface.isValid()) {
+                        return;
+                    }
+
+                    synchronized (mIsSurfaceValid) {
+                        if (mIsSurfaceValid.get() && mDrawThread != null) {
+                            mDrawThread.updateFrameLoop();
+                        }
+                    }
+                }
+            }
+        });
     }
 
     private void initSurfaceHolder() {
@@ -87,7 +201,9 @@ public class LikeView extends SurfaceView {
         mSurfaceHolder.addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder surfaceHolder) {
-                mIsSurfaceValid.set(true);
+                synchronized (mIsSurfaceValid) {
+                    mIsSurfaceValid.set(true);
+                }
                 if (mDrawThread == null) {
                     mDrawThread = new DrawThread("YY_IN_LIKEVIEW", LikeView.this);
                     mDrawThread.start();
@@ -104,8 +220,7 @@ public class LikeView extends SurfaceView {
                 synchronized (mIsSurfaceValid) {
                     mIsSurfaceValid.set(false);
                     if (mDrawThread != null) {
-                        mDrawThread.stopThread();
-                        mDrawThread = null;
+                        stopThread();
                     }
                 }
             }
@@ -116,33 +231,23 @@ public class LikeView extends SurfaceView {
         private static final String TAG = "DrawThread";
 
         //DrawThread thread msg
-        private static final int MSG_ADD_LIKE = 1;
-        private static final int MSG_STOP = 2;
-        private static final int MSG_CLEAR = 3;
+        private static final int MSG_UPDATE_FRAME_LOOP = 4;
 
         //Main thread msg
         private static final int MSG_PLAY_OVER = 101;
 
-        private List<LikeItem> mLikeItems;
-        private Bitmap mBitmap;
-        private int mBitmapWidth, mBitmapHeight;
         private Handler mDrawThreadHandler;
         private Handler mMainHandler;
-        private ValueAnimator mUpdateAnimator;
-        private RecyclerPool<LikeItem> mLikeItemRecyclerPool;
 
         private volatile boolean mIsLikeListEmpty;
-        private final byte[] mWakeUpLock = new byte[0];
+        private final byte[] mLock = new byte[0];
 
         private WeakReference<LikeView> mHost;
 
         DrawThread(String name, LikeView host) {
             super(name);
-            mLikeItems = new ArrayList<>();
             mIsLikeListEmpty = true;
-            mLikeItemRecyclerPool = new RecyclerPool<>();
             mHost = new WeakReference<>(host);
-            initUpdateAnimator();
             mMainHandler = new Handler(Looper.getMainLooper()) {
                 @Override
                 public void handleMessage(Message msg) {
@@ -158,110 +263,22 @@ public class LikeView extends SurfaceView {
             };
         }
 
-        private void initUpdateAnimator() {
-            mUpdateAnimator = ValueAnimator.ofFloat(0, 1);
-            mUpdateAnimator.setDuration(1000);
-            mUpdateAnimator.setRepeatCount(ValueAnimator.INFINITE);
-            mUpdateAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                    if (mHost.get() != null && mHost.get().mIsSurfaceValid.get()) {
-                        Surface surface = mHost.get().mSurfaceHolder.getSurface();
-                        if (surface == null || !surface.isValid()) {
-                            return;
-                        }
-
-                        tryToWait();
-                        synchronized (mHost.get().mIsSurfaceValid) {
-                            if (mHost.get().mIsSurfaceValid.get()) {
-                                infiniteLoop();
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        private void tryToWait() {
-            synchronized (mWakeUpLock) {
-                while (mIsLikeListEmpty) {
-                    try {
-                        mWakeUpLock.wait();
-                    } catch (InterruptedException e) {
-
-                    }
-                }
-            }
-        }
-
-        private void infiniteLoop() {
-            Canvas canvas = null;
-            try {
-                if (mHost.get() != null) {
-                    canvas = mHost.get().mSurfaceHolder.lockCanvas();
-                }
-                if (canvas != null) {
-                    canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-                    updateFrame(canvas);
-                }
-            } catch (Exception ex) {
-                Log.e(TAG, "draw thread run ex:", ex);
-            } finally {
-                if (canvas != null && mHost.get() != null) {
-                    mHost.get().mSurfaceHolder.unlockCanvasAndPost(canvas);
-                }
-            }
-        }
-
-        private void ensureBitmap() {
-            if (mHost.get() != null && mBitmapWidth == 0 && mBitmapHeight == 0) {
-                mBitmapWidth = DimensUtils.dip2pixel(mHost.get().mContext, 150);
-                mBitmapHeight = DimensUtils.dip2pixel(mHost.get().mContext, 150);
-            }
-            if (mHost.get() != null && mBitmap == null && mBitmapWidth > 0 && mBitmapHeight > 0) {
-                mBitmap = BitmapFactory.decodeResource(mHost.get().mContext.getResources(), R.drawable.small_video_like);
-                mBitmap = Bitmap.createScaledBitmap(mBitmap, mBitmapWidth, mBitmapHeight, false);
-            }
-        }
-
         //main thread
-        private void onAddLike(int x, int y) {
-            wakeUp();
-            sendMessage(MSG_ADD_LIKE, x, y);
-        }
-
-        //main thread
-        private void wakeUp() {
-            synchronized (mWakeUpLock) {
-                mIsLikeListEmpty = false;
-                mWakeUpLock.notify();
-            }
-        }
-
-        //main thread
-        private void clearAnimations() {
-            if (!mIsLikeListEmpty) {
-                sendMessage(MSG_CLEAR, null);
-            }
+        private void updateFrameLoop() {
+            sendMessage(MSG_UPDATE_FRAME_LOOP);
         }
 
         //main thread
         private void onLikeViewPlayOver() {
-            if (mHost.get() != null && mHost.get().mLikeViewListener != null) {
-                mHost.get().mLikeViewListener.onLikeViewPlayOver();
+            if (mHost.get() != null) {
+                mHost.get().onPlayOver();
             }
-        }
-
-        private void stopThread() {
-            wakeUp();
-            sendMessage(MSG_STOP, null);
         }
 
         @Override
         protected void onLooperPrepared() {
             super.onLooperPrepared();
             initHandler();
-            mUpdateAnimator.start();
         }
 
         private void initHandler() {
@@ -270,14 +287,8 @@ public class LikeView extends SurfaceView {
                 public void handleMessage(Message msg) {
                     super.handleMessage(msg);
                     switch (msg.what) {
-                        case MSG_ADD_LIKE:
-                            addLikeItemToList(msg);
-                            break;
-                        case MSG_STOP:
-                            stopSelf();
-                            break;
-                        case MSG_CLEAR:
-                            clear();
+                        case MSG_UPDATE_FRAME_LOOP:
+                            infiniteLoop();
                             break;
                         default:
                             break;
@@ -286,82 +297,66 @@ public class LikeView extends SurfaceView {
             };
         }
 
-        private void addLikeItemToList(Message message) {
-            LikeItem likeItem = getLikeItem();
-            if (likeItem != null && message != null) {
-                likeItem.setTouchPoint(message.arg1 - mBitmapWidth / 2, message.arg2 - mBitmapHeight / 2);
-                likeItem.start();
-                mLikeItems.add(likeItem);
-                mIsLikeListEmpty = false;
-            }
-        }
-
-        private LikeItem getLikeItem() {
-            LikeItem likeItem = mLikeItemRecyclerPool.obtain();
-            if (likeItem == null) {
-                if (mHost.get() != null) {
-                    ensureBitmap();
-                    likeItem = new LikeItem(mHost.get().mContext, mBitmap);
-                }
-            } else {
-                likeItem.reset();
-            }
-
-            return likeItem;
-        }
-
-        private void stopSelf() {
-            for (LikeItem item : mLikeItems) {
-                item.stop();
-            }
-            mLikeItems.clear();
-            mUpdateAnimator.cancel();
-            mLikeItemRecyclerPool.clear();
-            quit();
-        }
-
-        private void clear() {
-            if (mIsLikeListEmpty) {
+        private void infiniteLoop() {
+            if (mHost.get() == null) {
                 return;
             }
-
-            for (LikeItem item : mLikeItems) {
-                item.stop();
+            if (!mHost.get().mIsSurfaceValid.get()) {
+                return;
             }
-        }
-
-        private void updateFrame(Canvas canvas) {
-            Iterator<LikeItem> iterator = mLikeItems.iterator();
-            while (iterator.hasNext()) {
-                LikeItem item = iterator.next();
-                if (item.isAnimating()) {
-                    item.updateFrame(canvas);
-                } else {
-                    mLikeItemRecyclerPool.discard(item);
-                    iterator.remove();
-                    mIsLikeListEmpty = mLikeItems.isEmpty();
-                    if (mIsLikeListEmpty) {
-                        mMainHandler.sendEmptyMessage(MSG_PLAY_OVER);
+            synchronized (mHost.get().mIsSurfaceValid) {
+                if (mHost.get().mIsSurfaceValid.get()) {
+                    Canvas canvas = null;
+                    try {
+                        if (mHost.get() != null) {
+                            canvas = mHost.get().mSurfaceHolder.lockCanvas();
+                        }
+                        if (canvas != null) {
+                            canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+                            updateFrame(canvas);
+                        }
+                    } catch (Exception ex) {
+                        Log.e(TAG, "draw thread run ex:", ex);
+                    } finally {
+                        if (canvas != null && mHost.get() != null) {
+                            mHost.get().mSurfaceHolder.unlockCanvasAndPost(canvas);
+                        }
                     }
                 }
             }
         }
 
-        private void sendMessage(int msgType, Object o) {
-            if (mDrawThreadHandler != null) {
-                Message msg = Message.obtain();
-                msg.what = msgType;
-                msg.obj = o;
-                mDrawThreadHandler.sendMessage(msg);
+        private void updateFrame(Canvas canvas) {
+            if (mHost.get() == null) {
+                return;
+            }
+            synchronized (mLock) {
+                if (mHost.get() != null) {
+                    final List<LikeItem> list = mHost.get().mLikeItems;
+                    final RecyclerPool<LikeItem> pool = mHost.get().mLikeItemRecyclerPool;
+
+                    Iterator<LikeItem> iterator = list.iterator();
+                    while (iterator.hasNext()) {
+                        LikeItem item = iterator.next();
+                        if (item.isAnimating()) {
+                            item.updateFrame(canvas);
+                        } else {
+                            pool.discard(item);
+                            iterator.remove();
+                            mIsLikeListEmpty = list.isEmpty();
+                            if (mIsLikeListEmpty) {
+                                mMainHandler.sendEmptyMessage(MSG_PLAY_OVER);
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        private void sendMessage(int msgType, int arg1, int arg2) {
+        private void sendMessage(int msgType) {
             if (mDrawThreadHandler != null) {
                 Message msg = Message.obtain();
                 msg.what = msgType;
-                msg.arg1 = arg1;
-                msg.arg2 = arg2;
                 mDrawThreadHandler.sendMessage(msg);
             }
         }
