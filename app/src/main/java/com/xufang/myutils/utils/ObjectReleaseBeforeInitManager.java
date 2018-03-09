@@ -1,5 +1,6 @@
 package com.xufang.myutils.utils;
 
+import android.util.Log;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,11 +33,15 @@ public final class ObjectReleaseBeforeInitManager {
 
         String type = target.getType();
 
+        Log.i(TAG, "callInit mObjectMap1:%s", mObjectMap);
         ReleaseBeforeInitObject releaseBeforeInitObject = mObjectMap.get(type);
-        if (releaseBeforeInitObject != null) {
+        if (releaseBeforeInitObject != null && !releaseBeforeInitObject.equals(target)) {
+            Log.i(TAG, "callInit releaseBeforeInitObject:%s, call onRelease", releaseBeforeInitObject);
             releaseBeforeInitObject.onRelease();
+            mObjectMap.remove(type);
         }
         mObjectMap.put(type, target);
+        Log.i(TAG, "callInit mObjectMap2:%s", mObjectMap);
         target.onInit();
     }
 
@@ -47,11 +52,14 @@ public final class ObjectReleaseBeforeInitManager {
 
         String type = target.getType();
 
+        Log.i(TAG, "callRelease mObjectMap1:%s", mObjectMap);
         ReleaseBeforeInitObject releaseBeforeInitObject = mObjectMap.get(type);
-        if (releaseBeforeInitObject != null) {
-            releaseBeforeInitObject.onRelease();
+        if (releaseBeforeInitObject != null && releaseBeforeInitObject.equals(target)) {
+            Log.i(TAG, "callRelease releaseBeforeInitObject:%s, call onRelease", releaseBeforeInitObject);
+            target.onRelease();
             mObjectMap.remove(type);
         }
+        Log.i(TAG, "callRelease mObjectMap2:%s", mObjectMap);
     }
 
     public interface ReleaseBeforeInitObject {
